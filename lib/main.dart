@@ -1,122 +1,301 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MaterialApp(home: LoginScreen(), debugShowCheckedModeBanner: false));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
-  // This widget is the root of your application.
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  TextEditingController emailController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  late SharedPreferences sharedPreferences;
+
+  @override
+  void initState() {
+    super.initState();
+    checkLogin();
+  }
+
+  void checkLogin() async {
+    sharedPreferences = await SharedPreferences.getInstance();
+    bool isLoggedIn = sharedPreferences.getBool('isLoggedIn') ?? false;
+    if (isLoggedIn) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Dashboardscreen()));
+    }
+  }
+
+  void login() async {
+    if (_formKey.currentState!.validate()) {
+      // Save login state
+      sharedPreferences = await SharedPreferences.getInstance();
+      sharedPreferences.setBool('isLoggedIn', true);
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Dashboardscreen()));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return Scaffold(
+      appBar: AppBar(title: Text("Login")),
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextFormField(
+                controller: emailController,
+                decoration: InputDecoration(labelText: "Email"),
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: passwordController,
+                decoration: InputDecoration(labelText: "Password"),
+                obscureText: true,
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: login,
+                child: Text("Login"),
+              ),
+            ],
+          ),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class Dashboardscreen extends StatefulWidget {
+  const Dashboardscreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<Dashboardscreen> createState() => _DashboardscreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _DashboardscreenState extends State<Dashboardscreen> {
+  int currentIndex = 0;
 
-  void _incrementCounter() {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Dashboard"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: logout,
+          ),
+        ],
+      ),
+      body: currentIndex == 0 ? RandomNumberGame() : TapGame(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (index) => setState(() => currentIndex = index),
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.gamepad), label: 'Random Number Game'),
+          BottomNavigationBarItem(icon: Icon(Icons.touch_app), label: 'Tap Challenge Game'),
+        ],
+      ),
+    );
+  }
+
+  void logout() async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool('isLoggedIn', false);
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+  }
+}
+
+class RandomNumberGame extends StatefulWidget {
+  @override
+  _RandomNumberGameState createState() => _RandomNumberGameState();
+}
+
+class _RandomNumberGameState extends State<RandomNumberGame> {
+  final Random random = Random();
+  late int targetNumber;
+  int numberOfGuesses = 0;
+  final int maxGuesses = 5;
+  String hintMessage = '';
+  final TextEditingController guessController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _startNewGame();
+  }
+
+  void _startNewGame() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      targetNumber = random.nextInt(100) + 1;
+      numberOfGuesses = 0;
+      hintMessage = '';
+      guessController.clear();
+    });
+  }
+
+  void _checkGuess() {
+    final guess = int.tryParse(guessController.text);
+    if (guess == null) {
+      setState(() {
+        hintMessage = 'Please enter a valid number';
+      });
+      return;
+    }
+
+    numberOfGuesses++;
+
+    if (numberOfGuesses > maxGuesses) {
+      setState(() {
+        hintMessage = 'Game over! You have used all $maxGuesses guesses. The number was $targetNumber';
+      });
+      return;
+    }
+
+    if (guess > targetNumber) {
+      hintMessage = 'Too high!';
+    } else if (guess < targetNumber) {
+      hintMessage = 'Too low!';
+    } else {
+      hintMessage = 'Correct! You won in $numberOfGuesses guesses!';
+    }
+
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Random Number Game'),
+      ),
+      body: Column(
+        children: [
+          Text('Guess the number (1-100):'),
+          TextField(
+            controller: guessController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Enter your guess',
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _checkGuess,
+            child: Text('Check Guess'),
+          ),
+          SizedBox(height: 20),
+          Text(hintMessage),
+        ],
+      ),
+    );
+  }
+}
+
+class TapGame extends StatefulWidget {
+  @override
+  _TapGameState createState() => _TapGameState();
+}
+
+class _TapGameState extends State<TapGame> {
+  int _tapCount = 0;
+  int _timeLeft = 10;
+  bool _gameStarted = false;
+
+  void _startGame() {
+    setState(() {
+      _tapCount = 0;
+      _timeLeft = 10;
+      _gameStarted = true;
+    });
+    Future.delayed(Duration(seconds: 10), _endGame);
+    _countDown();
+  }
+
+  void _countDown() {
+    Timer.periodic(Duration(seconds: 1), (timer) {
+      if (_timeLeft > 0) {
+        setState(() {
+          _timeLeft--;
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _incrementTap() {
+    if (_gameStarted) {
+      setState(() {
+        _tapCount++;
+      });
+    }
+  }
+
+  void _endGame() {
+    setState(() {
+      _gameStarted = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text('Tap Challenge Game'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Tap as many times as possible in 10 seconds'),
+          GestureDetector(
+            onTap: () {
+              if (!_gameStarted) _startGame();
+              _incrementTap();
+            },
+            child: Container(
+              color: Colors.black12,
+              height: 100,
+              width: double.infinity,
+              child: Center(
+                child: Text(
+                  'TAP ME!',
+                  style: TextStyle(color: Colors.white, fontSize: 24),
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(height: 20),
+          Text('Taps: $_tapCount', style: TextStyle(fontSize: 20)),
+          if (_gameStarted)
+            Text('Time Left: $_timeLeft seconds', style: TextStyle(fontSize: 20)),
+          if (!_gameStarted)
+            Text('Game Over!', style: TextStyle(fontSize: 20)),
+
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
