@@ -8,7 +8,7 @@ void main() {
   runApp(MaterialApp(home: LoginScreen(), debugShowCheckedModeBanner: false));
 }
 
-// Game History Model
+
 class GameHistory {
   final String gameType;
   final int score;
