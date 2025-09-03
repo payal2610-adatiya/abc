@@ -269,7 +269,7 @@ class _TapGameState extends State<TapGame> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Tap as many times as possible in 10 second'),
+          Text('Tap as many times as possible in 10 secon'),
           GestureDetector(
             onTap: () {
               if (!_gameStarted) _startGame();
