@@ -180,7 +180,7 @@ class _RandomNumberGameState extends State<RandomNumberGame> {
     } else if (guess < targetNumber) {
       hintMessage = 'Too low!';
     } else {
-      hintMessage = 'Correct! You won in $numberOfGuesses guesses!';
+      hintMessage = 'Correct  You won in $numberOfGuesses guesses!';
     }
 
     setState(() {});
